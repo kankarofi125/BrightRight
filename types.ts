@@ -89,6 +89,7 @@ export interface DashboardAnalysisResult {
     sentimentTrend: SentimentTrendPoint[];
     platformBreakdown: PlatformBreakdown[];
     actionableInsights?: ActionableInsight[];
+    summary?: string;
 }
 
 export interface Report {

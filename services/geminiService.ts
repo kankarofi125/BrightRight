@@ -30,6 +30,8 @@ const generateDynamicDashboardData = (brandName: string, keywords: string[], dat
         visibilityChange: parseFloat((Math.random() * 20 - 10).toFixed(1)), // -10% to +10%
         totalMentions: totalMentions,
         sentimentBreakdown: { positive, neutral, negative },
+        summary: `The overall visibility score for "${brandName}" is ${overallScore}, indicating a solid presence within the AI-generated space for the period of ${dateRange}. Sentiment is predominantly positive at ${positive}%, driven by discussions around "${keywords[0]}" and general product quality. Key themes identified include customer service experiences and pricing comparisons against competitors.`,
+        actionableInsights: mockActionableInsights.insights,
         mentions: Array.from({ length: 5 }, (_, i) => ({
             platform: platforms[random(0, platforms.length - 1)],
             query: `reviews for ${brandName} ${keywords[random(0, keywords.length - 1)] || 'products'}`,

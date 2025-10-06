@@ -4,7 +4,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import FloatingLabelInput from '../components/forms/FloatingLabelInput';
 import { getDashboardAnalysis, getCompetitorScores } from '../services/geminiService';
-import type { VisibilityData, CompetitorData, OnboardingData, Report, DashboardAnalysisResult, DetailedMention } from '../types';
+import type { VisibilityData, CompetitorData, OnboardingData, Report, DashboardAnalysisResult, DetailedMention, ActionableInsight } from '../types';
 import Logo from '../components/Logo';
 
 // FIX: Renamed constant to use upper snake case for consistency.
@@ -88,6 +88,53 @@ const KeyMetrics: React.FC<{ analysis: DashboardAnalysisResult }> = ({ analysis 
                         </ResponsiveContainer>
                      </div>
                 </div>
+            </div>
+        </Card>
+    );
+};
+
+const AnalysisSummary: React.FC<{ summary?: string }> = ({ summary }) => {
+    if (!summary) return null;
+    return (
+        <Card className="card-for-print page-break-inside-avoid">
+            <h3 className="text-xl font-semibold mb-4">Analysis Summary</h3>
+            <p className="text-gray-400 whitespace-pre-wrap leading-relaxed">{summary}</p>
+        </Card>
+    );
+};
+
+const ActionableInsights: React.FC<{ insights?: ActionableInsight[] }> = ({ insights }) => {
+    if (!insights || insights.length === 0) return null;
+    
+    const PRIORITY_STYLES = {
+        High: 'bg-red-500/20 text-red-400',
+        Medium: 'bg-yellow-500/20 text-yellow-400',
+        Low: 'bg-blue-500/20 text-blue-400',
+    };
+    
+    const CATEGORY_ICONS: { [key: string]: React.ReactNode } = {
+        'Content Strategy': <IconBulb />,
+        'Community Engagement': <IconUsers />,
+        'Reputation Management': <IconShieldCheck />,
+        'SEO Optimization': <IconSearch />,
+    };
+
+    return (
+        <Card className="card-for-print">
+            <h3 className="text-xl font-semibold mb-4">Actionable Insights</h3>
+            <div className="space-y-4">
+                {insights.map((insight, index) => (
+                    <div key={index} className="p-4 bg-gray-500/10 rounded-lg flex items-start gap-4 page-break-inside-avoid">
+                        <div className="flex-shrink-0 text-gray-400 mt-1">{CATEGORY_ICONS[insight.category]}</div>
+                        <div className="flex-grow">
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-1">
+                                <h4 className="font-semibold">{insight.title}</h4>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${PRIORITY_STYLES[insight.priority]}`}>{insight.priority}</span>
+                            </div>
+                            <p className="text-sm text-gray-400">{insight.description}</p>
+                        </div>
+                    </div>
+                ))}
             </div>
         </Card>
     );
@@ -187,7 +234,12 @@ const ReportDetailView: React.FC<{ report: Report, brandName: string }> = ({ rep
                     </div>
                     <KeyMetrics analysis={report.analysis} />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 page-break-inside-avoid">
+                    <div className="page-break-before space-y-6">
+                        <AnalysisSummary summary={report.analysis.summary} />
+                        <ActionableInsights insights={report.analysis.actionableInsights} />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 page-break-before page-break-inside-avoid">
                          <ReportChartCard title="Visibility Trend">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={report.visibilityTrend} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
@@ -550,6 +602,10 @@ const IconExport = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 
 const IconChevronRight = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>;
 const IconDocument = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
 const IconChevronDown = ({ className = '' }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-gray-400 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
+const IconBulb = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
+const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.274-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.274.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const IconShieldCheck = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944a11.955 11.955 0 019-2.606 11.955 11.955 0 019 2.606 12.02 12.02 0 00-2.382-9.016z" /></svg>;
+const IconSearch = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 
 
 export default ReportsPage;
