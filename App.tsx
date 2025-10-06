@@ -107,9 +107,9 @@ const PublicHeader: React.FC<{
             </nav>
 
             {/* Mobile Menu */}
-            <div className={`md:hidden fixed top-0 left-0 w-full h-full bg-dark-bg transition-transform duration-300 ease-in-out z-40 ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`md:hidden fixed top-16 left-0 right-0 bottom-0 bg-dark-bg transition-transform duration-300 ease-in-out z-40 ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="container mx-auto h-full flex flex-col items-center justify-center">
-                     <ul className="flex flex-col items-center space-y-6 text-lg text-gray-300 text-center">
+                     <ul className="flex flex-col items-center space-y-3 text-base text-gray-300 text-center">
                         <li><a onClick={() => handleMobileLinkClick('changelog')} className="cursor-pointer hover:text-white transition-colors">CHANGELOG</a></li>
                         <li><a onClick={() => handleMobileLinkClick('pricing')} className="cursor-pointer hover:text-white transition-colors">PRICING</a></li>
                         <li><a onClick={() => handleMobileLinkClick('docs')} className="cursor-pointer hover:text-white transition-colors">DOCS</a></li>
@@ -118,7 +118,7 @@ const PublicHeader: React.FC<{
                                 RESOURCES <IconChevronDown className={`ml-2 w-5 h-5 transition-transform ${mobileResourcesOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {mobileResourcesOpen && (
-                                <div className="mt-4 space-y-4 text-base animate-fade-in text-gray-400">
+                                <div className="mt-3 space-y-2 text-sm animate-fade-in text-gray-400">
                                     <a onClick={() => handleMobileLinkClick('resources')} className="block cursor-pointer hover:text-white transition-colors">FAQs</a>
                                     <a href="#" className="flex items-center justify-center hover:text-white transition-colors">Report a bug <IconExternalLink className="h-5 w-5 ml-2" /></a>
                                     <a href="#" className="flex items-center justify-center hover:text-white transition-colors">Suggest an idea <IconExternalLink className="h-5 w-5 ml-2" /></a>
@@ -127,8 +127,8 @@ const PublicHeader: React.FC<{
                                 </div>
                             )}
                         </li>
-                        <li className="pt-6">
-                            <button onClick={() => { onOpenWaitlist(); setMobileMenuOpen(false); }} className="px-6 py-3 rounded-lg font-semibold transition-all duration-300 bg-gray-500/20 text-gray-200 hover:bg-gray-500/30">
+                        <li className="pt-2">
+                            <button onClick={() => { onOpenWaitlist(); setMobileMenuOpen(false); }} className="px-4 py-2 rounded-lg font-semibold transition-all duration-300 bg-gray-500/20 text-gray-200 hover:bg-gray-500/30">
                                 JOIN WAITLIST
                             </button>
                         </li>
