@@ -19,6 +19,7 @@ import Logo from './components/Logo';
 import InitialAnalysisModal from './components/InitialAnalysisModal';
 
 const APP_DATA_KEY = 'brightRankData';
+const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 const IconChevronDown: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
 const IconExternalLink: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002 2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>;
@@ -147,6 +148,47 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [isInitialAnalysis, setIsInitialAnalysis] = useState(false);
+  const timeoutId = useRef<number | null>(null);
+
+  const showToast = useCallback((data: ToastData) => {
+    setToast(data);
+    setTimeout(() => setToast(null), 5000); // Increased timeout for better readability
+  }, []);
+
+  const handleLogout = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+      if (timeoutId.current) {
+        window.clearTimeout(timeoutId.current);
+        timeoutId.current = null;
+      }
+      setAppData(null);
+      localStorage.removeItem(APP_DATA_KEY);
+      setCurrentPage('landing');
+      showToast({ message, type });
+  }, [showToast]);
+
+  useEffect(() => {
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const resetTimeout = () => {
+      if (timeoutId.current) {
+        window.clearTimeout(timeoutId.current);
+      }
+      timeoutId.current = window.setTimeout(() => {
+        handleLogout('Your session has expired due to inactivity.', 'error');
+      }, SESSION_TIMEOUT);
+    };
+
+    if (appData) {
+      resetTimeout();
+      events.forEach(event => window.addEventListener(event, resetTimeout));
+    }
+
+    return () => {
+      if (timeoutId.current) {
+        window.clearTimeout(timeoutId.current);
+      }
+      events.forEach(event => window.removeEventListener(event, resetTimeout));
+    };
+  }, [appData, handleLogout]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -165,7 +207,7 @@ const App: React.FC = () => {
           parsedData.competitors = [];
         }
         setAppData(parsedData);
-        setCurrentPage('dashboard');
+        // App always starts on landing page
       }
     } catch (error) {
       console.error("Failed to parse app data from localStorage", error);
@@ -178,13 +220,12 @@ const App: React.FC = () => {
     localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
   };
 
-  const showToast = useCallback((data: ToastData) => {
-    setToast(data);
-    setTimeout(() => setToast(null), 5000); // Increased timeout for better readability
-  }, []);
-
   const handleStartTrial = () => {
-    setShowOnboarding(true);
+    if (appData) {
+      setCurrentPage('dashboard');
+    } else {
+      setShowOnboarding(true);
+    }
   };
 
   const handleOpenWaitlistModal = () => {
@@ -201,8 +242,8 @@ const App: React.FC = () => {
       showToast({ message: "You've been placed in the queue!", type: 'success' });
   };
   
-  const handleGoHome = () => {
-    setCurrentPage(appData ? 'dashboard' : 'landing');
+  const handleLogoClickLogout = () => {
+    handleLogout('You have been successfully logged out.');
   };
 
   const handleCloseOnboarding = () => {
@@ -263,7 +304,7 @@ const App: React.FC = () => {
                 setCurrentPage={setCurrentPage}
                 isDarkMode={isDarkMode}
                 setIsDarkMode={setIsDarkMode}
-                onGoHome={handleGoHome}
+                onGoHome={handleLogoClickLogout}
             />
             <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
                 <div className="max-w-7xl mx-auto">
