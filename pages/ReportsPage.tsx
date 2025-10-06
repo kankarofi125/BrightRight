@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import FloatingLabelInput from '../components/forms/FloatingLabelInput';
 import { getDashboardAnalysis, getCompetitorScores } from '../services/geminiService';
 import type { VisibilityData, CompetitorData, OnboardingData, Report, DashboardAnalysisResult, DetailedMention } from '../types';
+import Logo from '../components/Logo';
 
 // FIX: Renamed constant to use upper snake case for consistency.
 const REPORTS_STORAGE_KEY = 'brightRankReports';
@@ -127,70 +128,124 @@ const MentionsTable: React.FC<{ mentions: DashboardAnalysisResult['mentions'] }>
     </Card>
 );
 
+const PDFLayout: React.FC<{ report: Report, brandName: string, children: React.ReactNode }> = ({ report, brandName, children }) => {
+    return (
+        <div>
+            {/* Cover Page - Only for Print */}
+            <div className="hidden print-only pdf-cover page-break-after">
+                <Logo className="w-24 h-24 mb-8 logo-svg" />
+                <h1>{report.title}</h1>
+                <h2>AI Visibility Report</h2>
+                <div className="meta-info">
+                    <p><strong>Brand:</strong> {brandName}</p>
+                    <p><strong>Date Range:</strong> {report.dateRange}</p>
+                    <p><strong>Generated on:</strong> {report.dateGenerated}</p>
+                </div>
+                <svg className="absolute w-0 h-0">
+                  <defs>
+                    <linearGradient id="logoGradientPrint" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#8A2BE2" /> 
+                      <stop offset="100%" stopColor="#FF69B4" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+            </div>
+
+            {/* Header - Only for Print */}
+            <div className="hidden print-only pdf-header">
+                <p>{report.title} - {brandName}</p>
+            </div>
+
+            {/* Footer - Only for Print */}
+            <div className="hidden print-only pdf-footer">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>Generated on {new Date().toLocaleDateString()} by BrightRank.AI</td>
+                            <td style={{ textAlign: 'right' }}>Page <span className="page-number"></span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Main Content */}
+            {children}
+        </div>
+    );
+};
+
 
 // --- Main Views ---
 
 const ReportDetailView: React.FC<{ report: Report, brandName: string }> = ({ report, brandName }) => {
     return (
-        <div id="print-area" className="space-y-6">
-            <ReportHeader report={report} brandName={brandName} />
-            <KeyMetrics analysis={report.analysis} />
+        <div id="print-area">
+            <PDFLayout report={report} brandName={brandName}>
+                <div className="space-y-6">
+                    <div className="no-print">
+                      <ReportHeader report={report} brandName={brandName} />
+                    </div>
+                    <KeyMetrics analysis={report.analysis} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <ReportChartCard title="Visibility Trend">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={report.visibilityTrend} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                            <XAxis dataKey="date" stroke="currentColor" />
-                            <YAxis stroke="currentColor" domain={[0, 100]} />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Line type="monotone" name="Visibility Score" dataKey="score" stroke="#8884d8" strokeWidth={2} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </ReportChartCard>
-                 <ReportChartCard title="Sentiment Trend">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={report.analysis.sentimentTrend} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                            <XAxis dataKey="date" stroke="currentColor" />
-                            <YAxis stroke="currentColor" domain={[0, 100]} unit="%" />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Line type="monotone" name="Positive" dataKey="positive" stroke="#22C55E" strokeWidth={2} />
-                            <Line type="monotone" name="Neutral" dataKey="neutral" stroke="#FBBF24" strokeWidth={2} />
-                            <Line type="monotone" name="Negative" dataKey="negative" stroke="#EF4444" strokeWidth={2} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </ReportChartCard>
-            </div>
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ReportChartCard title="Competitor Insights">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={report.competitorComparison} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                            <XAxis dataKey="name" stroke="currentColor" />
-                            <YAxis stroke="currentColor" domain={[0, 100]} />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Bar dataKey="visibility" name="Visibility" radius={[4, 4, 0, 0]}>
-                                {report.competitorComparison.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.name === brandName ? '#EC4899' : '#6366F1'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ReportChartCard>
-                <ReportChartCard title="Platform Breakdown">
-                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={report.analysis.platformBreakdown} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                            <XAxis dataKey="platform" stroke="currentColor" />
-                            <YAxis stroke="currentColor" />
-                            <Tooltip content={<ChartTooltip />} />
-                            <Bar dataKey="mentions" name="Mentions" fill="#EC4899" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ReportChartCard>
-            </div>
-            <MentionsTable mentions={report.analysis.mentions} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 page-break-inside-avoid">
+                         <ReportChartCard title="Visibility Trend">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={report.visibilityTrend} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                                    <XAxis dataKey="date" stroke="currentColor" />
+                                    <YAxis stroke="currentColor" domain={[0, 100]} />
+                                    <Tooltip content={<ChartTooltip />} />
+                                    <Line type="monotone" name="Visibility Score" dataKey="score" stroke="#8884d8" strokeWidth={2} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </ReportChartCard>
+                         <ReportChartCard title="Sentiment Trend">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={report.analysis.sentimentTrend} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                                    <XAxis dataKey="date" stroke="currentColor" />
+                                    <YAxis stroke="currentColor" domain={[0, 100]} unit="%" />
+                                    <Tooltip content={<ChartTooltip />} />
+                                    <Line type="monotone" name="Positive" dataKey="positive" stroke="#22C55E" strokeWidth={2} />
+                                    <Line type="monotone" name="Neutral" dataKey="neutral" stroke="#FBBF24" strokeWidth={2} />
+                                    <Line type="monotone" name="Negative" dataKey="negative" stroke="#EF4444" strokeWidth={2} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </ReportChartCard>
+                    </div>
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 page-break-before page-break-inside-avoid">
+                        <ReportChartCard title="Competitor Insights">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={report.competitorComparison} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                                    <XAxis dataKey="name" stroke="currentColor" />
+                                    <YAxis stroke="currentColor" domain={[0, 100]} />
+                                    <Tooltip content={<ChartTooltip />} />
+                                    <Bar dataKey="visibility" name="Visibility" radius={[4, 4, 0, 0]}>
+                                        {report.competitorComparison.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.name === brandName ? '#EC4899' : '#6366F1'} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </ReportChartCard>
+                        <ReportChartCard title="Platform Breakdown">
+                             <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={report.analysis.platformBreakdown} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                                    <XAxis dataKey="platform" stroke="currentColor" />
+                                    <YAxis stroke="currentColor" />
+                                    <Tooltip content={<ChartTooltip />} />
+                                    <Bar dataKey="mentions" name="Mentions" fill="#EC4899" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </ReportChartCard>
+                    </div>
+                    <div className="page-break-before">
+                        <MentionsTable mentions={report.analysis.mentions} />
+                    </div>
+                </div>
+            </PDFLayout>
         </div>
     );
 };

@@ -87,53 +87,165 @@
       }
     </script>
      <style>
+      @page {
+        size: A4;
+        margin: 1.5cm;
+      }
+
       @media print {
         body, html {
           background-color: #fff !important;
           color: #000 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
+        
+        /* Hide everything by default */
         body * {
           visibility: hidden;
         }
+
+        /* Show only the print area and its children */
         #print-area, #print-area * {
           visibility: visible;
         }
+        
         #print-area {
           position: absolute;
           left: 0;
           top: 0;
           width: 100%;
           margin: 0;
-          padding: 20px;
+          padding: 0;
           border: none !important;
           box-shadow: none !important;
+          counter-reset: page;
         }
-        .dark #print-area, .dark #print-area *, .dark .recharts-text, .dark .recharts-legend-item-text {
-            color: #000 !important;
-            background-color: #fff !important;
-            fill: #000 !important;
-            stroke: #666 !important;
+
+        /* General print styles */
+        .print-only {
+          display: block !important;
         }
-        .dark #print-area .recharts-cartesian-axis-tick-value tspan {
-           fill: #000 !important;
-        }
-        .dark #print-area .recharts-label tspan {
-            fill: #000 !important;
-        }
-        #print-area .no-print {
+        .no-print {
           display: none !important;
         }
-        .recharts-wrapper, .recharts-surface {
-            page-break-inside: avoid;
+        .page-break-before {
+          page-break-before: always;
         }
-         #print-area .recharts-responsive-container {
-            width: 100% !important;
-            height: auto !important;
+        .page-break-after {
+          page-break-after: always;
+        }
+        .page-break-inside-avoid {
+          page-break-inside: avoid;
+        }
+
+        /* PDF Cover Page */
+        .pdf-cover {
+          display: flex !important;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 257mm; /* A4 height minus margins */
+          text-align: center;
+          page-break-after: always;
+          background: linear-gradient(135deg, #8A2BE2, #FF69B4) !important;
+          color: white !important;
+        }
+        .pdf-cover * {
+          color: white !important;
+          visibility: visible;
+        }
+        .pdf-cover .logo-svg rect {
+          fill: url(#logoGradientPrint) !important;
+        }
+         .pdf-cover .logo-svg path {
+          stroke: white !important;
+        }
+        .pdf-cover h1 {
+          font-size: 2.5rem !important;
+          font-weight: bold !important;
+          margin-bottom: 0.5rem !important;
+        }
+        .pdf-cover h2 {
+          font-size: 1.5rem !important;
+          font-weight: normal !important;
+          opacity: 0.9 !important;
+        }
+        .pdf-cover .meta-info {
+          margin-top: 4rem !important;
+          font-size: 1rem !important;
+          opacity: 0.8 !important;
+        }
+        
+        /* PDF Header & Footer */
+        .pdf-header, .pdf-footer {
+          display: block !important;
+          position: fixed;
+          width: 100%;
+          font-size: 9pt;
+          color: #666 !important;
+        }
+        .pdf-header {
+          top: -1.2cm;
+          left: 0;
+          text-align: center;
+          border-bottom: 1px solid #ccc;
+          padding-bottom: 5px;
+        }
+        .pdf-footer {
+          bottom: -1.2cm;
+          left: 0;
+          border-top: 1px solid #ccc;
+          padding-top: 5px;
+        }
+        .pdf-footer .page-number::after {
+          content: counter(page);
+        }
+        .pdf-footer table {
+          width: 100%;
+        }
+
+        /* Force dark mode styles to be light for printing */
+        .dark #print-area, .dark #print-area *, .dark .recharts-text, .dark .recharts-legend-item-text {
+          color: #000 !important;
+          background-color: #fff !important;
+          fill: #000 !important;
+          stroke: #666 !important;
+          border-color: #e2e8f0 !important;
+        }
+        .dark #print-area .recharts-cartesian-axis-tick-value tspan,
+        .dark #print-area .recharts-label tspan {
+           fill: #000 !important;
+        }
+
+        /* Chart adjustments for print */
+        .recharts-wrapper, .recharts-surface {
+          page-break-inside: avoid;
+        }
+        #print-area .recharts-responsive-container {
+          width: 100% !important;
+          height: 300px !important; /* Fixed height for consistency */
         }
         #print-area .card-for-print {
-            border: 1px solid #e2e8f0;
-            box-shadow: none;
-            page-break-inside: avoid;
+          border: 1px solid #e2e8f0 !important;
+          box-shadow: none !important;
+          page-break-inside: avoid;
+          background: white !important;
+        }
+
+        /* Table styles for print */
+        #print-area table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        #print-area th, #print-area td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+        #print-area th {
+          background-color: #f2f2f2 !important;
+          font-weight: bold;
         }
       }
     </style>
