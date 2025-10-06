@@ -1,0 +1,5 @@
+{
+  "name": "BrightRank.AI - AI Visibility Tracker",
+  "description": "A web dashboard to help users measure how often their brand appears in AI-generated answers from platforms like Gemini, ChatGPT, and Claude. Track visibility, sentiment, and competitor performance.",
+  "requestFramePermissions": []
+}
