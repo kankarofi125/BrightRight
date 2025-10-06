@@ -2,7 +2,29 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { GenerateContentResponse } from "@google/genai";
 import type { KeywordAnalysisResult, KeywordMentionDetail, DashboardAnalysisResult } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+/**
+ * Lazily initializes and retrieves the GoogleGenAI client instance.
+ * This prevents the app from crashing on start-up if the API key is not yet available.
+ * @returns The GoogleGenAI client instance or null if the API key is missing.
+ */
+const getAiClient = (): GoogleGenAI | null => {
+    if (ai) {
+        return ai;
+    }
+    
+    // In a browser environment without a build step, process might not be defined.
+    // This check prevents a runtime error.
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        return ai;
+    } else {
+        console.error("API_KEY environment variable not found. App will load, but API calls will fail.");
+        return null;
+    }
+};
+
 
 /**
  * Checks brand visibility using the Gemini API with a structured prompt.
@@ -12,6 +34,12 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  * @returns A promise that resolves to a Gemini API response or null on error.
  */
 export const checkBrandVisibility = async (brandName: string, keywords: string[]): Promise<GenerateContentResponse | null> => {
+  const localAi = getAiClient();
+  if (!localAi) {
+      console.error("Gemini client not initialized. API key might be missing.");
+      return null;
+  }
+
   const prompt = `
     Analyze the web for mentions of the brand "${brandName}" in the context of the following topics: ${keywords.join(', ')}.
     Please provide your analysis in the following format, using the exact headings:
@@ -33,7 +61,7 @@ export const checkBrandVisibility = async (brandName: string, keywords: string[]
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await localAi.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
     });
@@ -78,6 +106,12 @@ export const parseAnalysisResponse = (text: string): KeywordAnalysisResult => {
 };
 
 export const getDashboardAnalysis = async (brandName: string, keywords: string[], dateRange: string): Promise<GenerateContentResponse | null> => {
+    const localAi = getAiClient();
+    if (!localAi) {
+      console.error("Gemini client not initialized. API key might be missing.");
+      return null;
+    }
+
     const prompt = `
     Analyze AI visibility for the brand "${brandName}" based on topics: ${keywords.join(', ')} for the period "${dateRange}".
     Provide a full breakdown in the following format, using the exact headings and structure. Do not use JSON. Ensure all values are filled.
@@ -111,7 +145,7 @@ export const getDashboardAnalysis = async (brandName: string, keywords: string[]
 `;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await localAi.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
         });
