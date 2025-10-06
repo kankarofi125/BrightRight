@@ -11,7 +11,6 @@
     "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
     "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
     "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.2.0",
-    "@google/genai": "https://esm.sh/@google/genai@0.14.0",
     "react-dom/": "https://esm.sh/react-dom@18.2.0/",
     "react/": "https://esm.sh/react@18.2.0/"
   }
@@ -59,6 +58,27 @@
               'progress-bar': {
                 '0%': { width: '0%' },
                 '100%': { width: '100%' },
+              },
+              'spin-slow': {
+                'from': { transform: 'rotate(0deg)' },
+                'to': { transform: 'rotate(360deg)' },
+              },
+              'indeterminate-progress': {
+                '0%': { transform: 'translateX(-50%) scaleX(0.2)' },
+                '50%': { transform: 'translateX(100%) scaleX(0.8)' },
+                '100%': { transform: 'translateX(250%) scaleX(0.2)' },
+              },
+              'radar-pulse': {
+                '0%': { transform: 'scale(0.6)', opacity: '0.6' },
+                '100%': { transform: 'scale(2.2)', opacity: '0' }
+              },
+              'text-gradient-shift': {
+                '0%, 100%': { backgroundPosition: '0% 50%' },
+                '50%': { backgroundPosition: '100% 50%' }
+              },
+              'subtle-pulse': {
+                '0%, 100%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.08)' }
               }
             },
             animation: {
@@ -68,6 +88,11 @@
               'slide-up': 'slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'slide-down': 'slide-down 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'progress-bar': 'progress-bar 1.5s ease-in-out forwards',
+              'spin-slow': 'spin-slow 3s linear infinite',
+              'indeterminate-progress': 'indeterminate-progress 2s ease-in-out infinite',
+              'radar-pulse': 'radar-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+              'text-gradient-shift': 'text-gradient-shift 4s ease infinite',
+              'subtle-pulse': 'subtle-pulse 2s ease-in-out infinite',
             }
           }
         }

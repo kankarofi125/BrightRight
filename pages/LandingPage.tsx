@@ -1,6 +1,3 @@
-
-
-
 import React from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -24,9 +21,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStartTrial, onOpenWaitlist 
                     <p className="mt-6 text-lg md:text-xl text-gray-400">
                         Measure your brand's presence in AI-generated answers from Gemini, ChatGPT, and more. Master the new SEO for the AI era.
                     </p>
-                    <div className="mt-10 flex justify-center space-x-4">
-                        <Button onClick={onOpenWaitlist} variant="primary" className="text-lg px-8 py-3">Join Waitlist</Button>
-                        <Button onClick={onStartTrial} variant="secondary" className="text-lg px-8 py-3">Start your free trial</Button>
+                    <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
+                        <Button onClick={onOpenWaitlist} variant="primary" className="text-lg px-8 py-3 w-full sm:w-auto">Join Waitlist</Button>
+                        <Button onClick={onStartTrial} variant="secondary" className="text-lg px-8 py-3 w-full sm:w-auto">Start your free trial</Button>
                     </div>
                 </div>
             </section>

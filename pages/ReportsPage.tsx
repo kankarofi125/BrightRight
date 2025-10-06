@@ -3,7 +3,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import Card from '../components/Card';
 import Button from '../components/Button';
 import FloatingLabelInput from '../components/forms/FloatingLabelInput';
-import { getDashboardAnalysis, parseDashboardAnalysisResponse, checkBrandVisibility, parseAnalysisResponse } from '../services/geminiService';
+import { getDashboardAnalysis, getCompetitorScores } from '../services/geminiService';
 import type { VisibilityData, CompetitorData, OnboardingData, Report, DashboardAnalysisResult, DetailedMention } from '../types';
 
 // FIX: Renamed constant to use upper snake case for consistency.
@@ -328,46 +328,32 @@ const ReportsPage: React.FC<{ appData: OnboardingData }> = ({ appData }) => {
             return;
         }
 
-        const response = await getDashboardAnalysis(appData.brandName, keywordsArray, dateRange);
+        const result = await getDashboardAnalysis(appData.brandName, keywordsArray, dateRange);
         
-        if (response) {
-            const result = parseDashboardAnalysisResponse(response.text);
-            if (result) {
-                // Fetch competitor scores
-                const competitorPromises = (appData.competitors || []).map(async (competitor) => {
-                    try {
-                        const competitorResponse = await checkBrandVisibility(competitor.name, keywordsArray);
-                        if (competitorResponse) {
-                            const competitorAnalysis = parseAnalysisResponse(competitorResponse.text);
-                            return { name: competitor.name, visibility: competitorAnalysis.score };
-                        }
-                        return { name: competitor.name, visibility: competitor.visibility }; // Fallback
-                    } catch (error) {
-                        console.error(`Failed to analyze competitor ${competitor.name}:`, error);
-                        return { name: competitor.name, visibility: competitor.visibility }; // Fallback on error
-                    }
-                });
+        if (result) {
+            // Fetch competitor scores in a single batch call to avoid rate limiting
+            const competitorNames = (appData.competitors || []).map(c => c.name);
+            const competitorScores = await getCompetitorScores(appData.brandName, keywordsArray, competitorNames);
 
-                const competitorScores = await Promise.all(competitorPromises);
+            // Use fetched scores if available, otherwise fall back to original data.
+            // This makes the UI resilient to partial API failures.
+            const finalCompetitorData = competitorScores !== null ? competitorScores : (appData.competitors || []);
 
-                const newReport: Report = {
-                    id: `rep_${Date.now()}`,
-                    title,
-                    dateRange,
-                    dateGenerated: new Date().toLocaleDateString(),
-                    analysis: result,
-                    visibilityTrend: generateTrendData(result.overallScore),
-                    competitorComparison: [
-                        { name: appData.brandName, visibility: result.overallScore }, 
-                        ...competitorScores
-                    ],
-                };
-                saveReports([...reports, newReport]);
-                setSelectedReport(newReport);
-                setIsCreating(false);
-            } else {
-                setError("Failed to parse report data from Gemini API.");
-            }
+            const newReport: Report = {
+                id: `rep_${Date.now()}`,
+                title,
+                dateRange,
+                dateGenerated: new Date().toLocaleDateString(),
+                analysis: result,
+                visibilityTrend: generateTrendData(result.overallScore),
+                competitorComparison: [
+                    { name: appData.brandName, visibility: result.overallScore }, 
+                    ...finalCompetitorData
+                ],
+            };
+            saveReports([...reports, newReport]);
+            setSelectedReport(newReport);
+            setIsCreating(false);
         } else {
             setError("Failed to generate report from Gemini API. Please try again.");
         }

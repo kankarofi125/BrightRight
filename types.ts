@@ -1,4 +1,5 @@
 
+
 export type Page = 'dashboard' | 'keywords' | 'reports' | 'settings' | 'pricing' | 'resources' | 'changelog' | 'docs' | 'landing';
 
 export interface Mention {
@@ -72,6 +73,12 @@ export interface PlatformBreakdown {
     mentions: number;
 }
 
+export interface ActionableInsight {
+    category: 'Content Strategy' | 'Community Engagement' | 'Reputation Management' | 'SEO Optimization';
+    priority: 'High' | 'Medium' | 'Low';
+    title: string;
+    description: string;
+}
 
 export interface DashboardAnalysisResult {
     overallScore: number;
@@ -81,6 +88,7 @@ export interface DashboardAnalysisResult {
     mentions: DetailedMention[];
     sentimentTrend: SentimentTrendPoint[];
     platformBreakdown: PlatformBreakdown[];
+    actionableInsights?: ActionableInsight[];
 }
 
 export interface Report {

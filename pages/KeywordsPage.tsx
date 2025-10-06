@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { checkBrandVisibility, parseAnalysisResponse } from '../services/geminiService';
+import { checkBrandVisibility } from '../services/geminiService';
 import type { KeywordAnalysisResult, KeywordMentionDetail } from '../types';
 import FloatingLabelInput from '../components/forms/FloatingLabelInput';
 
@@ -79,10 +80,10 @@ const KeywordsPage: React.FC<KeywordsPageProps> = ({ brandName, initialKeywords 
             return;
         }
 
-        const response = await checkBrandVisibility(brandName, keywords);
+        const result = await checkBrandVisibility(brandName, keywords);
 
-        if (response) {
-            setAnalysisResult(parseAnalysisResponse(response.text));
+        if (result) {
+            setAnalysisResult(result);
         } else {
             setError("Failed to get analysis from Gemini API. Please check the console for more details.");
         }

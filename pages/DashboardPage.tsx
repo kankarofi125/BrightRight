@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { getDashboardAnalysis, parseDashboardAnalysisResponse } from '../services/geminiService';
-import type { OnboardingData, DashboardAnalysisResult, DetailedMention, SentimentBreakdown, SentimentTrendPoint, PlatformBreakdown } from '../types';
+import { getDashboardAnalysis, getActionableInsights } from '../services/geminiService';
+import type { OnboardingData, DashboardAnalysisResult, DetailedMention, SentimentBreakdown, SentimentTrendPoint, PlatformBreakdown, ActionableInsight } from '../types';
+import type { ToastData } from '../components/Toast';
 
 const DateSelector: React.FC<{
   selectedRange: string;
@@ -178,6 +179,58 @@ const PlatformBreakdownChart: React.FC<{ data: PlatformBreakdown[] }> = ({ data 
     </Card>
 );
 
+const ActionableInsightsCard: React.FC<{ insights: ActionableInsight[] | null, isLoading: boolean }> = ({ insights, isLoading }) => {
+    const PRIORITY_STYLES = {
+        High: 'bg-red-500/20 text-red-400',
+        Medium: 'bg-yellow-500/20 text-yellow-400',
+        Low: 'bg-blue-500/20 text-blue-400',
+    };
+    
+    const CATEGORY_ICONS: { [key: string]: React.ReactNode } = {
+        'Content Strategy': <IconBulb />,
+        'Community Engagement': <IconUsers />,
+        'Reputation Management': <IconShieldCheck />,
+        'SEO Optimization': <IconSearch />,
+    };
+
+    if (isLoading) {
+        return (
+            <Card className="lg:col-span-3 animate-pulse">
+                <div className="h-6 w-1/3 bg-gray-500/20 rounded mb-4"></div>
+                <div className="space-y-4">
+                    <div className="h-16 bg-gray-500/20 rounded-lg"></div>
+                    <div className="h-16 bg-gray-500/20 rounded-lg"></div>
+                    <div className="h-16 bg-gray-500/20 rounded-lg"></div>
+                </div>
+            </Card>
+        );
+    }
+
+    if (!insights || insights.length === 0) {
+        return null;
+    }
+
+    return (
+        <Card className="lg:col-span-3">
+            <h2 className="text-xl font-semibold mb-4">💡 Actionable Insights</h2>
+            <div className="space-y-4">
+                {insights.map((insight, index) => (
+                    <div key={index} className="p-4 bg-gray-500/10 rounded-lg flex items-start gap-4">
+                        <div className="flex-shrink-0 text-gray-400 mt-1">{CATEGORY_ICONS[insight.category]}</div>
+                        <div className="flex-grow">
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-1">
+                                <h3 className="font-semibold text-gray-900 dark:text-white">{insight.title}</h3>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${PRIORITY_STYLES[insight.priority]}`}>{insight.priority}</span>
+                            </div>
+                            <p className="text-sm text-gray-400">{insight.description}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </Card>
+    );
+};
+
 
 const MentionsTable: React.FC<{ mentions: DetailedMention[] }> = ({ mentions }) => {
     const SentimentIndicator: React.FC<{ sentiment: string }> = ({ sentiment }) => {
@@ -254,62 +307,78 @@ const DashboardPlaceholder: React.FC = () => (
 
 interface DashboardPageProps {
   appData: OnboardingData | null;
-  initialAnalysisResult: DashboardAnalysisResult | null;
+  isInitialAnalysis?: boolean;
+  onAnalysisComplete?: () => void;
+  showToast: (data: ToastData) => void;
 }
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ appData, initialAnalysisResult }) => {
-    const [analysisResult, setAnalysisResult] = useState<DashboardAnalysisResult | null>(initialAnalysisResult);
-    const [isLoading, setIsLoading] = useState(!initialAnalysisResult);
+const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysis = false, onAnalysisComplete = () => {}, showToast }) => {
+    const [analysisResult, setAnalysisResult] = useState<DashboardAnalysisResult | null>(null);
+    const [insights, setInsights] = useState<ActionableInsight[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isInsightsLoading, setIsInsightsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState('Last 7 Days');
-    const isInitialMount = useRef(true);
     
     const runAnalysis = useCallback(async () => {
         if (!appData?.brandName || !appData?.keywords) {
             setError("Brand name and keywords are not set. Please configure them in Settings.");
+            if(isInitialAnalysis) onAnalysisComplete();
             return;
         }
         setIsLoading(true);
         setError(null);
+        setInsights(null);
         
         const keywordsArray = appData.keywords.split(',').map(k => k.trim()).filter(Boolean);
         if (keywordsArray.length === 0) {
             setError("No keywords found. Please add some in Settings.");
             setIsLoading(false);
+            if(isInitialAnalysis) onAnalysisComplete();
             return;
         }
-        
-        const response = await getDashboardAnalysis(appData.brandName, keywordsArray, dateRange);
 
-        if (response) {
-            const result = parseDashboardAnalysisResponse(response.text);
+        const fetchInsights = async (currentAnalysis: DashboardAnalysisResult) => {
+            setIsInsightsLoading(true);
+            try {
+                const insightsData = await getActionableInsights(currentAnalysis);
+                if (insightsData?.insights) {
+                    setInsights(insightsData.insights);
+                }
+            } catch (e) {
+                console.error("Failed to fetch mock insights", e);
+            } finally {
+                setIsInsightsLoading(false);
+            }
+        };
+        
+        try {
+            const result = await getDashboardAnalysis(appData.brandName, keywordsArray, dateRange);
+
             if (result) {
                 setAnalysisResult(result);
+                await fetchInsights(result);
             } else {
-                 setError("Failed to parse analysis from Gemini API. The response format was unexpected.");
+                setError("Failed to load mock dashboard data.");
+                showToast({ message: "Could not load dashboard data.", type: 'error' });
             }
-        } else {
-            setError("Failed to get analysis from Gemini API. This might be a temporary network issue.");
-        }
-        setIsLoading(false);
-    }, [appData, dateRange]);
-
-    useEffect(() => {
-        if (initialAnalysisResult) {
-            setAnalysisResult(initialAnalysisResult);
+        } catch (e) {
+            console.error("Analysis failed:", e);
+            setError("An unexpected error occurred while loading mock data.");
+            showToast({ message: "An error occurred.", type: 'error' });
+        } finally {
             setIsLoading(false);
-        } else if (appData) {
-             setIsLoading(false);
+            if(isInitialAnalysis) {
+                onAnalysisComplete();
+            }
         }
-    }, [initialAnalysisResult, appData]);
+    }, [appData, dateRange, isInitialAnalysis, onAnalysisComplete, showToast]);
 
     useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
+        if (appData) {
+            runAnalysis();
         }
-        runAnalysis();
-    }, [dateRange, runAnalysis]);
+    }, [runAnalysis, appData]);
 
     const handleRefresh = () => {
         runAnalysis();
@@ -331,6 +400,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, initialAnalysisR
                     <SentimentTrendChart data={analysisResult.sentimentTrend} />
                     <PlatformBreakdownChart data={analysisResult.platformBreakdown} />
                 </div>
+                 <ActionableInsightsCard insights={insights} isLoading={isInsightsLoading} />
                  <Card className="lg:col-span-3">
                     <h2 className="text-xl font-semibold mb-4">📊 Mentions Tracker</h2>
                     <MentionsTable mentions={analysisResult.mentions} />
@@ -348,7 +418,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, initialAnalysisR
                 </div>
                  <div className="flex items-center gap-4">
                     <DateSelector selectedRange={dateRange} onSelectRange={setDateRange} />
-                    <Button onClick={handleRefresh} disabled={isLoading}>
+                    <Button onClick={handleRefresh} disabled={isLoading || isInitialAnalysis}>
                         <IconRefresh />
                         <span className="ml-2 hidden sm:inline">{isLoading ? 'Refreshing...' : 'Refresh Data'}</span>
                     </Button>
@@ -364,5 +434,9 @@ const IconCalendar = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-
 const IconChevronDown = ({ className = '' }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-gray-400 ${className}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
 const IconTrendingUp = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>;
 const IconTrendingDown = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17l5-5m0 0l-5-5m5 5H6" /></svg>;
+const IconBulb = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
+const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.274-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.274.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const IconShieldCheck = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944a11.955 11.955 0 019-2.606 11.955 11.955 0 019 2.606 12.02 12.02 0 00-2.382-9.016z" /></svg>;
+const IconSearch = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 
 export default DashboardPage;

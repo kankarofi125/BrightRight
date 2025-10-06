@@ -1,236 +1,109 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import type { GenerateContentResponse } from "@google/genai";
-import type { KeywordAnalysisResult, KeywordMentionDetail, DashboardAnalysisResult } from '../types';
+import type { KeywordAnalysisResult, DashboardAnalysisResult, ActionableInsight, CompetitorData } from '../types';
 
-let ai: GoogleGenAI | null = null;
+// Helper function to create a random number in a range
+const random = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-/**
- * Lazily initializes and retrieves the GoogleGenAI client instance.
- * This prevents the app from crashing on start-up if the API key is not yet available.
- * @returns The GoogleGenAI client instance or null if the API key is missing.
- */
-const getAiClient = (): GoogleGenAI | null => {
-    if (ai) {
-        return ai;
-    }
-    
-    // In a browser environment without a build step, process might not be defined.
-    // This check prevents a runtime error.
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        return ai;
-    } else {
-        console.error("API_KEY environment variable not found. App will load, but API calls will fail.");
-        return null;
-    }
+const mockActionableInsights: { insights: ActionableInsight[] } = {
+    insights: [
+        { category: 'Reputation Management', priority: 'High', title: 'Address Negative Subscription Feedback', description: 'Create a dedicated FAQ page and train support staff to handle complaints promptly about delivery delays.' },
+        { category: 'Content Strategy', priority: 'Medium', title: 'Leverage "Eco-Friendly" Keywords', description: 'Create blog content and social media campaigns highlighting your brand\'s eco-friendly practices and compostable pods.' },
+        { category: 'SEO Optimization', priority: 'Low', title: 'Create Comparison Content', description: 'Develop a "Why [BrandName] is the best choice" page to control the narrative against competitors mentioned in taste tests.' }
+    ]
 };
 
+// --- Dynamic Data Generators ---
 
-/**
- * Checks brand visibility using the Gemini API with a structured prompt.
- * 
- * @param brandName The brand to search for.
- * @param keywords Keywords related to the brand's industry.
- * @returns A promise that resolves to a Gemini API response or null on error.
- */
-export const checkBrandVisibility = async (brandName: string, keywords: string[]): Promise<GenerateContentResponse | null> => {
-  const localAi = getAiClient();
-  if (!localAi) {
-      console.error("Gemini client not initialized. API key might be missing.");
-      return null;
-  }
+const generateDynamicDashboardData = (brandName: string, keywords: string[], dateRange: string): DashboardAnalysisResult => {
+    const totalMentions = random(50, 250);
+    const positive = random(30, 70);
+    const neutral = random(10, 30);
+    const negative = 100 - positive - neutral;
 
-  const prompt = `
-    Analyze the web for mentions of the brand "${brandName}" in the context of the following topics: ${keywords.join(', ')}.
-    Please provide your analysis in the following format, using the exact headings:
+    const platforms = ['Gemini', 'ChatGPT', 'Claude'];
+    const sentiments: ('Positive' | 'Negative' | 'Neutral')[] = ['Positive', 'Negative', 'Neutral'];
 
-    ## Summary
-    A brief one-paragraph summary of the brand's visibility and general perception based on the keywords.
-
-    ## Sentiment
-    A single word describing the overall sentiment (e.g., Positive, Neutral, Negative, Mixed).
-
-    ## Visibility Score
-    A numerical score from 0 to 100 representing the brand's visibility for these keywords. 100 is highest visibility.
-
-    ## Key Mentions
-    A bulleted list of 3-5 key phrases or sentences where the brand was mentioned. For each mention, prefix it with its sentiment in square brackets, like [Positive], [Negative], or [Neutral].
-    For example:
-    - [Positive] BrightRank.AI is the best tool for AI visibility.
-    - [Negative] The pricing for BrightRank.AI can be confusing.
-  `;
-
-  try {
-    const response = await localAi.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-    });
-    return response;
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    return null;
-  }
-};
-
-export const parseAnalysisResponse = (text: string): KeywordAnalysisResult => {
-    const summaryMatch = text.match(/## Summary\s*([\s\S]*?)(?=\n##|$)/);
-    const sentimentMatch = text.match(/## Sentiment\s*([\s\S]*?)(?=\n##|$)/);
-    const scoreMatch = text.match(/## Visibility Score\s*(\d+)/);
-    const mentionsMatch = text.match(/## Key Mentions\s*([\s\S]*)/);
-    
-    const mentions: KeywordMentionDetail[] = [];
-    if (mentionsMatch && mentionsMatch[1]) {
-        const mentionLines = mentionsMatch[1].split('\n').map(m => m.trim()).filter(Boolean);
-        mentionLines.forEach(line => {
-            const lineMatch = line.match(/^- \[(Positive|Negative|Neutral)\]\s*(.*)/i);
-            if (lineMatch && lineMatch[2]) {
-                mentions.push({
-                    sentiment: lineMatch[1].charAt(0).toUpperCase() + lineMatch[1].slice(1).toLowerCase() as 'Positive' | 'Negative' | 'Neutral',
-                    text: lineMatch[2].trim(),
-                });
-            } else if (line.startsWith('- ')) {
-                mentions.push({
-                    sentiment: 'Unknown',
-                    text: line.substring(2).trim(),
-                });
-            }
-        });
-    }
+    const brandHash = brandName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
+    const overallScore = (Math.abs(brandHash) % 40) + 50; // Score between 50-90
 
     return {
-        summary: summaryMatch ? summaryMatch[1].trim() : 'Could not parse summary.',
-        sentiment: sentimentMatch ? sentimentMatch[1].trim() : 'N/A',
-        score: scoreMatch ? parseInt(scoreMatch[1], 10) : 0,
-        mentions: mentions
+        overallScore: overallScore,
+        visibilityChange: parseFloat((Math.random() * 20 - 10).toFixed(1)), // -10% to +10%
+        totalMentions: totalMentions,
+        sentimentBreakdown: { positive, neutral, negative },
+        mentions: Array.from({ length: 5 }, (_, i) => ({
+            platform: platforms[random(0, platforms.length - 1)],
+            query: `reviews for ${brandName} ${keywords[random(0, keywords.length - 1)] || 'products'}`,
+            snippet: `A user mentioned ${brandName} in a discussion about ${keywords[random(0, keywords.length - 1)] || 'its products'}. The sentiment was generally ${sentiments[random(0, 2)].toLowerCase()}.`,
+            sentiment: sentiments[random(0, 2)],
+            date: `2023-10-${random(20, 28)}`,
+            confidence: parseFloat((Math.random() * 0.15 + 0.85).toFixed(2)), // 0.85 - 1.0
+        })),
+        sentimentTrend: [
+            { date: 'Week 1', positive: Math.max(0, positive - random(10,15)), neutral: neutral + random(0,5), negative: 100 - (positive - random(10,15)) - (neutral + random(0,5))},
+            { date: 'Week 2', positive: Math.max(0, positive - random(5,10)), neutral: neutral + random(0,5), negative: 100 - (positive - random(5,10)) - (neutral + random(0,5))},
+            { date: 'Week 3', positive: Math.max(0, positive - random(0,5)), neutral: neutral - random(0,5), negative: 100 - (positive - random(0,5)) - (neutral - random(0,5))},
+            { date: 'Week 4', positive: positive, neutral: neutral, negative: negative },
+        ].map(d => ({...d, positive: Math.max(0, Math.min(100, d.positive)), neutral: Math.max(0, Math.min(100, d.neutral)), negative: Math.max(0, Math.min(100, d.negative)) })),
+        platformBreakdown: [
+            { platform: 'ChatGPT', mentions: Math.floor(totalMentions * 0.5) },
+            { platform: 'Gemini', mentions: Math.floor(totalMentions * 0.35) },
+            { platform: 'Claude', mentions: Math.floor(totalMentions * 0.15) },
+        ],
     };
 };
 
-export const getDashboardAnalysis = async (brandName: string, keywords: string[], dateRange: string): Promise<GenerateContentResponse | null> => {
-    const localAi = getAiClient();
-    if (!localAi) {
-      console.error("Gemini client not initialized. API key might be missing.");
-      return null;
-    }
+const generateDynamicKeywordAnalysis = (brandName: string, keywords: string[]): KeywordAnalysisResult => {
+    const brandHash = brandName.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
+    const score = (Math.abs(brandHash) % 40) + 55; // Score between 55-95
+    const sentiments: ('Positive' | 'Negative' | 'Neutral' | 'Unknown')[] = ['Positive', 'Negative', 'Neutral', 'Unknown'];
+    const sentimentSummary = ['Mixed', 'Positive', 'Neutral'][random(0,2)];
 
-    const prompt = `
-    Analyze AI visibility for the brand "${brandName}" based on topics: ${keywords.join(', ')} for the period "${dateRange}".
-    Provide a full breakdown in the following format, using the exact headings and structure. Do not use JSON. Ensure all values are filled.
-
-    ## Overall Score
-    A numerical score from 0 to 100.
-
-    ## Visibility Change
-    A percentage change from the previous period (e.g., 5.2 or -3.1).
-
-    ## Total Mentions
-    The total number of mentions found.
-
-    ## Sentiment Breakdown
-    A list of sentiment percentages:
-    - Positive: [percentage]
-    - Neutral: [percentage]
-    - Negative: [percentage]
-
-    ## Mentions
-    A bulleted list of 5 to 10 detailed mentions. Each line must follow this exact format:
-    - Platform: [AI Platform] | Query: [User Query] | Snippet: [Response Snippet] | Sentiment: [Positive/Negative/Neutral] | Date: [YYYY-MM-DD] | Confidence: [0.0-1.0]
-
-    ## Sentiment Trend
-    A bulleted list of 4-7 data points for sentiment percentages over time. Each line must follow this format:
-    - Date: [Date Label] | Positive: [percentage] | Neutral: [percentage] | Negative: [percentage]
-
-    ## Platform Breakdown
-    A bulleted list of mention counts per platform. Each line must follow this format:
-    - Platform: [Platform Name] | Mentions: [Count]
-`;
-
-    try {
-        const response = await localAi.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-        });
-        return response;
-    } catch (error) {
-        console.error("Error calling Gemini API for dashboard analysis:", error);
-        return null;
-    }
+    return {
+        summary: `Analysis for "${brandName}" shows a strong presence for keywords like "${keywords[0]}". Overall sentiment is ${sentimentSummary.toLowerCase()}, though some discussions mention price or customer support as areas for improvement.`,
+        sentiment: sentimentSummary,
+        score: score,
+        mentions: keywords.slice(0, 4).map(kw => ({
+            text: `Users associate ${brandName} with "${kw}" in a generally ${sentiments[random(0, 2)].toLowerCase()} way.`,
+            sentiment: sentiments[random(0, 3)],
+        })),
+    };
 };
 
-export const parseDashboardAnalysisResponse = (text: string): DashboardAnalysisResult | null => {
-    try {
-        const getSectionContent = (heading: string, content: string): string => {
-            const regex = new RegExp(`## ${heading}\\s*([\\s\\S]*?)(?=\\n##|$)`, 'i');
-            const match = content.match(regex);
-            return match ? match[1].trim() : '';
-        };
+// --- Mock Service Functions ---
 
-        const overallScore = parseInt(getSectionContent('Overall Score', text), 10) || 0;
-        const visibilityChange = parseFloat(getSectionContent('Visibility Change', text)) || 0;
-        const totalMentions = parseInt(getSectionContent('Total Mentions', text), 10) || 0;
+const simulateApiCall = <T>(data: T): Promise<T> => {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(data);
+        }, 500 + Math.random() * 500); // Simulate network delay
+    });
+};
 
-        const sentimentBreakdownText = getSectionContent('Sentiment Breakdown', text);
-        const sentimentBreakdown = {
-            positive: parseInt(sentimentBreakdownText.match(/Positive:\s*(\d+)/)?.[1] || '0', 10),
-            neutral: parseInt(sentimentBreakdownText.match(/Neutral:\s*(\d+)/)?.[1] || '0', 10),
-            negative: parseInt(sentimentBreakdownText.match(/Negative:\s*(\d+)/)?.[1] || '0', 10),
-        };
+export const checkBrandVisibility = async (brandName: string, keywords: string[]): Promise<KeywordAnalysisResult | null> => {
+  console.log("MOCK: checkBrandVisibility called with:", { brandName, keywords });
+  const result = generateDynamicKeywordAnalysis(brandName, keywords);
+  return simulateApiCall(result);
+};
 
-        const mentionsText = getSectionContent('Mentions', text);
-        const mentionRegex = /- Platform: (.*?) \| Query: (.*?) \| Snippet: (.*?) \| Sentiment: (.*?) \| Date: (.*?) \| Confidence: (.*)/g;
-        const mentions: any[] = [];
-        let mentionMatch;
-        while ((mentionMatch = mentionRegex.exec(mentionsText)) !== null) {
-            mentions.push({
-                platform: mentionMatch[1].trim(),
-                query: mentionMatch[2].trim(),
-                snippet: mentionMatch[3].trim(),
-                sentiment: mentionMatch[4].trim(),
-                date: mentionMatch[5].trim(),
-                confidence: parseFloat(mentionMatch[6].trim()),
-            });
-        }
-        
-        const sentimentTrendText = getSectionContent('Sentiment Trend', text);
-        const trendRegex = /- Date: (.*?) \| Positive: (.*?) \| Neutral: (.*?) \| Negative: (.*?)/g;
-        const sentimentTrend: any[] = [];
-        let trendMatch;
-        while ((trendMatch = trendRegex.exec(sentimentTrendText)) !== null) {
-            sentimentTrend.push({
-                date: trendMatch[1].trim(),
-                positive: parseInt(trendMatch[2].trim(), 10),
-                neutral: parseInt(trendMatch[3].trim(), 10),
-                negative: parseInt(trendMatch[4].trim(), 10),
-            });
-        }
+export const getDashboardAnalysis = async (brandName: string, keywords: string[], dateRange: string): Promise<DashboardAnalysisResult | null> => {
+    console.log("MOCK: getDashboardAnalysis called with:", { brandName, keywords, dateRange });
+    const result = generateDynamicDashboardData(brandName, keywords, dateRange);
+    return simulateApiCall(result);
+};
 
-        const platformBreakdownText = getSectionContent('Platform Breakdown', text);
-        const platformRegex = /- Platform: (.*?) \| Mentions: (.*)/g;
-        const platformBreakdown: any[] = [];
-        let platformMatch;
-        while ((platformMatch = platformRegex.exec(platformBreakdownText)) !== null) {
-            platformBreakdown.push({
-                platform: platformMatch[1].trim(),
-                mentions: parseInt(platformMatch[2].trim(), 10),
-            });
-        }
-        
-        const result: DashboardAnalysisResult = {
-            overallScore,
-            visibilityChange,
-            totalMentions,
-            sentimentBreakdown,
-            mentions,
-            sentimentTrend,
-            platformBreakdown,
-        };
+export const getActionableInsights = async (analysisResult: DashboardAnalysisResult): Promise<{ insights: ActionableInsight[] } | null> => {
+    console.log("MOCK: getActionableInsights called.");
+    // Actionable insights can remain static as they are high-quality examples.
+    // We can still replace the placeholder for a bit more dynamic feel.
+    const dynamicInsights = JSON.parse(JSON.stringify(mockActionableInsights).replace(/\[BrandName\]/g, analysisResult.mentions[0]?.snippet.includes('BrandName') ? 'Your Brand' : 'a competitor'));
+    return simulateApiCall(dynamicInsights);
+};
 
-        if (result && typeof result.overallScore === 'number') {
-            return result;
-        }
-        console.error("Parsed dashboard text is missing required fields:", result);
-        return null;
-    } catch (e) {
-        console.error("Failed to parse dashboard text response:", e, "Raw text:", text);
-        return null;
-    }
+export const getCompetitorScores = async (mainBrandName: string, keywords: string[], competitorNames: string[]): Promise<CompetitorData[] | null> => {
+    console.log("MOCK: getCompetitorScores called with:", { mainBrandName, keywords, competitorNames });
+    const mockScores: CompetitorData[] = competitorNames.map(name => ({
+        name,
+        visibility: Math.floor(40 + Math.random() * 50) // Random score between 40 and 90
+    }));
+    return simulateApiCall(mockScores);
 };
