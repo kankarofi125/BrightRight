@@ -101,3 +101,16 @@ export interface Report {
   competitorComparison: CompetitorData[];
   visibilityTrend: VisibilityData[];
 }
+
+export interface TourStep {
+  selector: string;
+  title: string;
+  content: string;
+  position?: 'top' | 'bottom' | 'left' | 'right';
+}
+
+export interface HistoricalSnapshot {
+  timestamp: number;
+  dateRange: string;
+  analysis: DashboardAnalysisResult;
+}

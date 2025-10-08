@@ -13,6 +13,18 @@ interface OnboardingModalProps {
   onClose: () => void;
 }
 
+const ProgressBar: React.FC<{ step: number; totalSteps: number }> = ({ step, totalSteps }) => {
+  const progress = (step / totalSteps) * 100;
+  return (
+    <div className="absolute top-0 left-0 right-0 h-1.5 bg-gray-500/10">
+      <div
+        className="bg-gradient-to-r from-brand-purple to-brand-pink h-full rounded-r-full transition-all duration-500 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+};
+
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, onClose }) => {
   const [step, setStep] = useState(1);
   const [brandName, setBrandName] = useState('');
@@ -206,8 +218,11 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, onClose }
       className={`fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 ${isExiting ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
     >
       <div className={`w-full max-w-lg ${isExiting ? 'animate-slide-down' : 'animate-slide-up'}`}>
-        <Card className="w-full">
-          {renderStep()}
+        <Card className="w-full overflow-hidden">
+          <ProgressBar step={step} totalSteps={4} />
+          <div className="pt-8">
+            {renderStep()}
+          </div>
         </Card>
       </div>
     </div>
@@ -215,7 +230,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onComplete, onClose }
 };
 
 const IconSparkles = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.293 2.293a1 1 0 010 1.414L13 12l-1.293 1.293a1 1 0 01-1.414 0L8 10.414a1 1 0 010-1.414L10.293 6.707a1 1 0 011.414 0L13 8l2.293-2.293a1 1 0 011.414 0L18 7.414a1 1 0 010 1.414L16.707 10.121a1 1 0 01-1.414 0L14 8.828 12.293 10.536a1 1 0 01-1.414 0L9.586 9.243a1 1 0 010-1.414L11 6.121" /></svg>;
-const IconTrash = () => <svg xmlns="http://www.w.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 const IconCheckCircle = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
 export default OnboardingModal;

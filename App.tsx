@@ -9,7 +9,7 @@ import LandingPage from './pages/LandingPage';
 import KeywordsPage from './pages/KeywordsPage';
 import OnboardingModal from './components/OnboardingModal';
 import { Toast, ToastData } from './components/Toast';
-import { Page, OnboardingData } from './types';
+import { Page, OnboardingData, TourStep } from './types';
 import PricingPage from './pages/PricingPage';
 import ResourcesPage from './pages/ResourcesPage';
 import ChangelogPage from './pages/ChangelogPage';
@@ -17,8 +17,10 @@ import DocsPage from './pages/DocsPage';
 import JoinWaitlistModal from './components/JoinWaitlistModal';
 import Logo from './components/Logo';
 import InitialAnalysisModal from './components/InitialAnalysisModal';
+import GuidedTour from './components/GuidedTour';
 
 const APP_DATA_KEY = 'brightRankData';
+const TOUR_STORAGE_KEY = 'brightRankTourCompleted';
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 const IconChevronDown: React.FC<{className?: string}> = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
@@ -148,6 +150,8 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [isInitialAnalysis, setIsInitialAnalysis] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const timeoutId = useRef<number | null>(null);
 
   const showToast = useCallback((data: ToastData) => {
@@ -254,12 +258,58 @@ const App: React.FC = () => {
     handleSetAppData(data);
     setIsInitialAnalysis(true);
     setCurrentPage('dashboard');
+    setIsNewUser(true); // Flag as new user to trigger tour
     showToast({ message: 'Welcome! Setting up your dashboard...', type: 'success' });
   };
 
   const handleAnalysisComplete = () => {
     setIsInitialAnalysis(false);
+    const tourCompleted = localStorage.getItem(TOUR_STORAGE_KEY);
+    // Only show tour if it's a new user session and tour hasn't been completed before
+    if (isNewUser && !tourCompleted) {
+        setTimeout(() => {
+            setShowTour(true);
+        }, 600); // Small delay for modal to animate out
+    }
   };
+
+  const handleTourClose = () => {
+    setShowTour(false);
+    localStorage.setItem(TOUR_STORAGE_KEY, 'true');
+  };
+
+  const tourSteps: TourStep[] = [
+    {
+      selector: '#tour-step-1',
+      title: 'Your Visibility Score',
+      content: 'This is your brand\'s overall score in AI conversations. We calculate it based on how often and how positively your brand is mentioned.',
+      position: 'bottom',
+    },
+    {
+      selector: '#tour-step-2',
+      title: 'Select a Date Range',
+      content: 'You can filter your dashboard data by different time periods to see trends and track progress.',
+      position: 'bottom',
+    },
+    {
+      selector: '#tour-step-3',
+      title: 'Refresh Your Data',
+      content: 'Click here to fetch the latest data. The dashboard updates automatically based on your plan.',
+      position: 'bottom',
+    },
+    {
+      selector: '#tour-step-4',
+      title: 'Track Every Mention',
+      content: 'Here you\'ll find a detailed log of every time your brand is mentioned, along with the context and sentiment.',
+      position: 'top',
+    },
+    {
+      selector: '#tour-step-5',
+      title: 'Explore More',
+      content: 'Use the sidebar to navigate to other sections like Keywords, Reports, and Settings to dive deeper.',
+      position: 'right',
+    },
+  ];
 
   const renderPage = () => {
     // Guards to prevent rendering app pages without data, redirecting to landing if accessed directly.
@@ -312,6 +362,7 @@ const App: React.FC = () => {
                 </div>
             </main>
             {isInitialAnalysis && <InitialAnalysisModal brandName={appData!.brandName} />}
+            <GuidedTour isOpen={showTour} steps={tourSteps} onClose={handleTourClose} />
             {toast && <Toast data={toast} onDismiss={() => setToast(null)} />}
         </div>
      );

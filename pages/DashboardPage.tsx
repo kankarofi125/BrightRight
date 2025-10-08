@@ -1,10 +1,13 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { getDashboardAnalysis, getActionableInsights } from '../services/geminiService';
-import type { OnboardingData, DashboardAnalysisResult, DetailedMention, SentimentBreakdown, SentimentTrendPoint, PlatformBreakdown, ActionableInsight } from '../types';
+import type { OnboardingData, DashboardAnalysisResult, DetailedMention, SentimentBreakdown, SentimentTrendPoint, PlatformBreakdown, ActionableInsight, HistoricalSnapshot } from '../types';
 import type { ToastData } from '../components/Toast';
+
+const HISTORY_STORAGE_KEY = 'brightRankHistory';
 
 const DateSelector: React.FC<{
   selectedRange: string;
@@ -71,7 +74,7 @@ const VisibilityScoreCard: React.FC<{ score: number; change: number }> = ({ scor
     const ChangeIcon = change >= 0 ? IconTrendingUp : IconTrendingDown;
 
     return (
-        <Card className="flex flex-col items-center justify-center text-center h-full">
+        <Card id="tour-step-1" className="flex flex-col items-center justify-center text-center h-full">
              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Visibility Score</h3>
             <div className="relative w-36 h-36">
                 <svg className="absolute w-full h-full" viewBox="0 0 100 100">
@@ -178,6 +181,44 @@ const PlatformBreakdownChart: React.FC<{ data: PlatformBreakdown[] }> = ({ data 
          </div>
     </Card>
 );
+
+const HistoricalTrendChart: React.FC<{ data: HistoricalSnapshot[] }> = ({ data }) => {
+    if (data.length < 2) {
+        return (
+            <Card className="lg:col-span-3 text-center py-12">
+                <IconHistory className="mx-auto h-12 w-12 text-gray-600 mb-4" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Track Your Progress</h3>
+                <p className="text-gray-500 mt-1">Not enough data for historical trends yet. <br />Refresh your data a few times to see your performance over time.</p>
+            </Card>
+        );
+    }
+
+    const chartData = data.map(snapshot => ({
+        date: new Date(snapshot.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        "Visibility Score": snapshot.analysis.overallScore,
+        "Total Mentions": snapshot.analysis.totalMentions,
+    }));
+    
+    return (
+        <Card className="lg:col-span-3">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Historical Performance</h3>
+            <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                        <XAxis dataKey="date" stroke="currentColor" tick={{ fontSize: 12 }} />
+                        <YAxis yAxisId="left" stroke="#8A2BE2" tick={{ fontSize: 12, fill: '#8A2BE2' }} domain={[0, 100]} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#FF69B4" tick={{ fontSize: 12, fill: '#FF69B4' }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend />
+                        <Line yAxisId="left" type="monotone" dataKey="Visibility Score" stroke="#8A2BE2" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                        <Line yAxisId="right" type="monotone" dataKey="Total Mentions" stroke="#FF69B4" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+        </Card>
+    );
+};
 
 const ActionableInsightsCard: React.FC<{ insights: ActionableInsight[] | null, isLoading: boolean }> = ({ insights, isLoading }) => {
     const PRIORITY_STYLES = {
@@ -314,11 +355,27 @@ interface DashboardPageProps {
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysis = false, onAnalysisComplete = () => {}, showToast }) => {
     const [analysisResult, setAnalysisResult] = useState<DashboardAnalysisResult | null>(null);
+    const [history, setHistory] = useState<HistoricalSnapshot[]>([]);
     const [insights, setInsights] = useState<ActionableInsight[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isInsightsLoading, setIsInsightsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState('Last 7 Days');
+    
+    useEffect(() => {
+        if (appData?.brandName) {
+            try {
+                const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+                if (storedHistory) {
+                    const allHistory = JSON.parse(storedHistory);
+                    const brandHistory = allHistory[appData.brandName] || [];
+                    setHistory(brandHistory);
+                }
+            } catch (e) {
+                console.error("Failed to load history", e);
+            }
+        }
+    }, [appData?.brandName]);
     
     const runAnalysis = useCallback(async () => {
         if (!appData?.brandName || !appData?.keywords) {
@@ -356,6 +413,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
             const result = await getDashboardAnalysis(appData.brandName, keywordsArray, dateRange);
 
             if (result) {
+                const newSnapshot: HistoricalSnapshot = {
+                    timestamp: Date.now(),
+                    dateRange: dateRange,
+                    analysis: result,
+                };
+
+                setHistory(prevHistory => {
+                    const updatedHistory = [...prevHistory, newSnapshot].slice(-20); // Keep last 20
+                    try {
+                        const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+                        const allHistory = storedHistory ? JSON.parse(storedHistory) : {};
+                        allHistory[appData.brandName] = updatedHistory;
+                        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(allHistory));
+                    } catch (e) {
+                        console.error("Failed to save history", e);
+                    }
+                    return updatedHistory;
+                });
+                
                 setAnalysisResult(result);
                 await fetchInsights(result);
             } else {
@@ -400,8 +476,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
                     <SentimentTrendChart data={analysisResult.sentimentTrend} />
                     <PlatformBreakdownChart data={analysisResult.platformBreakdown} />
                 </div>
+                 <HistoricalTrendChart data={history} />
                  <ActionableInsightsCard insights={insights} isLoading={isInsightsLoading} />
-                 <Card className="lg:col-span-3">
+                 <Card id="tour-step-4" className="lg:col-span-3">
                     <h2 className="text-xl font-semibold mb-4">📊 Mentions Tracker</h2>
                     <MentionsTable mentions={analysisResult.mentions} />
                 </Card>
@@ -417,11 +494,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
                      <p className="text-gray-400">Full AI Visibility Breakdown for "{appData?.brandName}"</p>
                 </div>
                  <div className="flex items-center gap-4">
-                    <DateSelector selectedRange={dateRange} onSelectRange={setDateRange} />
-                    <Button onClick={handleRefresh} disabled={isLoading || isInitialAnalysis}>
-                        <IconRefresh />
-                        <span className="ml-2 hidden sm:inline">{isLoading ? 'Refreshing...' : 'Refresh Data'}</span>
-                    </Button>
+                    <div id="tour-step-2">
+                      <DateSelector selectedRange={dateRange} onSelectRange={setDateRange} />
+                    </div>
+                    <div id="tour-step-3">
+                      <Button onClick={handleRefresh} disabled={isLoading || isInitialAnalysis}>
+                          <IconRefresh />
+                          <span className="ml-2 hidden sm:inline">{isLoading ? 'Refreshing...' : 'Refresh Data'}</span>
+                      </Button>
+                    </div>
                  </div>
             </div>
             {renderContent()}
@@ -438,5 +519,6 @@ const IconBulb = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-
 const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.274-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.274.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const IconShieldCheck = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944a11.955 11.955 0 019-2.606 11.955 11.955 0 019 2.606 12.02 12.02 0 00-2.382-9.016z" /></svg>;
 const IconSearch = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
+const IconHistory = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
 export default DashboardPage;

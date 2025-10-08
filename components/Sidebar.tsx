@@ -20,8 +20,9 @@ const NavItem: React.FC<{
   icon: React.ReactNode;
   label: string;
   isCollapsed: boolean;
-}> = ({ page, currentPage, setCurrentPage, icon, label, isCollapsed }) => (
-  <li>
+  id?: string;
+}> = ({ page, currentPage, setCurrentPage, icon, label, isCollapsed, id }) => (
+  <li id={id}>
     <button
       onClick={() => setCurrentPage(page)}
       className={`w-full flex items-center p-3 my-1 rounded-lg cursor-pointer transition-all duration-300 ${ isCollapsed ? 'justify-center' : ''} ${
@@ -70,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isDarkMo
             <ul>
               <NavItem page="dashboard" currentPage={currentPage} setCurrentPage={setCurrentPage} icon={<IconDashboard />} label="Dashboard" isCollapsed={isCollapsed} />
               <NavItem page="keywords" currentPage={currentPage} setCurrentPage={setCurrentPage} icon={<IconTag />} label="Keywords" isCollapsed={isCollapsed} />
-              <NavItem page="reports" currentPage={currentPage} setCurrentPage={setCurrentPage} icon={<IconChart />} label="Reports" isCollapsed={isCollapsed} />
+              <NavItem page="reports" id="tour-step-5" currentPage={currentPage} setCurrentPage={setCurrentPage} icon={<IconChart />} label="Reports" isCollapsed={isCollapsed} />
               <NavItem page="settings" currentPage={currentPage} setCurrentPage={setCurrentPage} icon={<IconSettings />} label="Settings" isCollapsed={isCollapsed} />
             </ul>
           </nav>
