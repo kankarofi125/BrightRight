@@ -1,6 +1,15 @@
+export type Page = 'dashboard' | 'keywords' | 'reports' | 'settings' | 'pricing' | 'resources' | 'changelog' | 'docs' | 'landing' | 'auth';
 
+export interface User {
+  email: string;
+}
 
-export type Page = 'dashboard' | 'keywords' | 'reports' | 'settings' | 'pricing' | 'resources' | 'changelog' | 'docs' | 'landing';
+export interface UserAccount {
+  email: string;
+  // NOTE: In a real-world application, this should be a securely hashed password.
+  // For this mock project, storing the plain text password is an acceptable simplification.
+  passwordHash: string;
+}
 
 export interface Mention {
     id: number;
@@ -113,4 +122,9 @@ export interface HistoricalSnapshot {
   timestamp: number;
   dateRange: string;
   analysis: DashboardAnalysisResult;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
 }

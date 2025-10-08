@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import Card from '../components/Card';
@@ -193,11 +192,25 @@ const HistoricalTrendChart: React.FC<{ data: HistoricalSnapshot[] }> = ({ data }
         );
     }
 
-    const chartData = data.map(snapshot => ({
-        date: new Date(snapshot.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        "Visibility Score": snapshot.analysis.overallScore,
-        "Total Mentions": snapshot.analysis.totalMentions,
-    }));
+    const timestamps = data.map(s => s.timestamp);
+    const minDate = new Date(Math.min(...timestamps));
+    const maxDate = new Date(Math.max(...timestamps));
+    const showYear = minDate.getFullYear() !== maxDate.getFullYear();
+
+    const chartData = data.map(snapshot => {
+        const dateOptions: Intl.DateTimeFormatOptions = {
+            month: 'short',
+            day: 'numeric',
+        };
+        if (showYear) {
+            dateOptions.year = 'numeric';
+        }
+        return {
+            date: new Date(snapshot.timestamp).toLocaleDateString('en-US', dateOptions),
+            "Visibility Score": snapshot.analysis.overallScore,
+            "Total Mentions": snapshot.analysis.totalMentions,
+        };
+    });
     
     return (
         <Card className="lg:col-span-3">
@@ -361,6 +374,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
     const [isInsightsLoading, setIsInsightsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState('Last 7 Days');
+    const [platformFilter, setPlatformFilter] = useState<string>('All');
     
     useEffect(() => {
         if (appData?.brandName) {
@@ -386,6 +400,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
         setIsLoading(true);
         setError(null);
         setInsights(null);
+        setPlatformFilter('All'); // Reset filter
         
         const keywordsArray = appData.keywords.split(',').map(k => k.trim()).filter(Boolean);
         if (keywordsArray.length === 0) {
@@ -465,6 +480,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
         if (error) return <Card className="text-center py-12"><p className="text-red-400 mb-4">{error}</p><Button onClick={handleRefresh}>Try Again</Button></Card>;
         if (!analysisResult) return <Card className="text-center py-12"><p className="text-gray-500 mb-4">Welcome! Click "Refresh Data" to generate your dashboard.</p><Button onClick={handleRefresh} disabled={isLoading}>{isLoading ? 'Analyzing...' : 'Refresh Data'}</Button></Card>;
         
+        const filteredMentions = analysisResult.mentions.filter(mention => 
+            platformFilter === 'All' || mention.platform === platformFilter
+        );
+
         return (
             <div className="space-y-6 animate-fade-in">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -479,8 +498,30 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ appData, isInitialAnalysi
                  <HistoricalTrendChart data={history} />
                  <ActionableInsightsCard insights={insights} isLoading={isInsightsLoading} />
                  <Card id="tour-step-4" className="lg:col-span-3">
-                    <h2 className="text-xl font-semibold mb-4">📊 Mentions Tracker</h2>
-                    <MentionsTable mentions={analysisResult.mentions} />
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
+                        <h2 className="text-xl font-semibold">📊 Mentions Tracker</h2>
+                        <div className="flex items-center gap-1 p-1 bg-gray-500/10 rounded-lg self-start sm:self-center">
+                            {['All', 'Gemini', 'ChatGPT', 'Claude'].map(platform => (
+                                <button
+                                    key={platform}
+                                    onClick={() => setPlatformFilter(platform)}
+                                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                                        platformFilter === platform
+                                            ? 'bg-light-card dark:bg-dark-bg shadow text-gray-900 dark:text-white'
+                                            : 'text-gray-500 hover:text-white'
+                                    }`}
+                                >
+                                    {platform}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <MentionsTable mentions={filteredMentions} />
+                    {filteredMentions.length === 0 && analysisResult.mentions.length > 0 && (
+                        <div className="text-center py-10 text-gray-500">
+                            <p>No mentions found for the selected platform.</p>
+                        </div>
+                    )}
                 </Card>
             </div>
         )
@@ -519,6 +560,7 @@ const IconBulb = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-
 const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.274-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.274.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const IconShieldCheck = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944a11.955 11.955 0 019-2.606 11.955 11.955 0 019 2.606 12.02 12.02 0 00-2.382-9.016z" /></svg>;
 const IconSearch = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
-const IconHistory = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+// FIX: The IconHistory component did not accept any props. It has been updated to accept a className prop to allow for custom styling.
+const IconHistory: React.FC<{ className?: string }> = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
 export default DashboardPage;

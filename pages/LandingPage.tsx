@@ -1,14 +1,14 @@
+
 import React from 'react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import type { Page } from '../types';
 
 interface LandingPageProps {
-    onStartTrial: () => void;
-    onOpenWaitlist: () => void;
+    onGetStarted: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStartTrial, onOpenWaitlist }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     return (
         <>
             {/* Hero Section */}
@@ -22,8 +22,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStartTrial, onOpenWaitlist 
                         Measure your brand's presence in AI-generated answers from Gemini, ChatGPT, and more. Master the new SEO for the AI era.
                     </p>
                     <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
-                        <Button onClick={onOpenWaitlist} variant="primary" className="text-lg px-8 py-3 w-full sm:w-auto">Join Waitlist</Button>
-                        <Button onClick={onStartTrial} variant="secondary" className="text-lg px-8 py-3 w-full sm:w-auto">Start your free trial</Button>
+                        <Button onClick={onGetStarted} variant="primary" className="text-lg px-8 py-3 w-full sm:w-auto">Get Started for Free</Button>
                     </div>
                 </div>
             </section>

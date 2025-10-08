@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import type { Page } from '../types';
 import Logo from './Logo';
@@ -11,6 +9,7 @@ interface SidebarProps {
   isDarkMode: boolean;
   setIsDarkMode: (isDark: boolean) => void;
   onGoHome: () => void;
+  userEmail?: string;
 }
 
 const NavItem: React.FC<{
@@ -40,7 +39,7 @@ const NavItem: React.FC<{
   </li>
 );
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isDarkMode, setIsDarkMode, onGoHome }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isDarkMode, setIsDarkMode, onGoHome, userEmail }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
@@ -83,8 +82,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isDarkMo
                         <IconUser />
                     </div>
                     <div className={`ml-3 overflow-hidden ${isCollapsed ? 'w-0' : 'w-auto'}`}>
-                        <p className="font-semibold text-sm whitespace-nowrap">Demo User</p>
-                        <p className="text-xs text-gray-400 whitespace-nowrap">user@example.com</p>
+                        <p className="font-semibold text-sm whitespace-nowrap truncate">{userEmail ? 'Welcome' : 'Demo User'}</p>
+                        <p className="text-xs text-gray-400 whitespace-nowrap truncate">{userEmail || 'user@example.com'}</p>
                     </div>
                 </div>
               </div>

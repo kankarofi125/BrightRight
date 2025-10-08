@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -9,17 +8,19 @@ import LandingPage from './pages/LandingPage';
 import KeywordsPage from './pages/KeywordsPage';
 import OnboardingModal from './components/OnboardingModal';
 import { Toast, ToastData } from './components/Toast';
-import { Page, OnboardingData, TourStep } from './types';
+import { Page, OnboardingData, TourStep, User, UserAccount } from './types';
 import PricingPage from './pages/PricingPage';
 import ResourcesPage from './pages/ResourcesPage';
 import ChangelogPage from './pages/ChangelogPage';
 import DocsPage from './pages/DocsPage';
-import JoinWaitlistModal from './components/JoinWaitlistModal';
+import AuthPage from './pages/AuthPage';
 import Logo from './components/Logo';
 import InitialAnalysisModal from './components/InitialAnalysisModal';
 import GuidedTour from './components/GuidedTour';
+import ChatAssistant from './components/ChatAssistant';
 
-const APP_DATA_KEY = 'brightRankData';
+const USERS_STORAGE_KEY = 'brightRankUsers';
+const APP_DATA_STORAGE_KEY = 'brightRankData';
 const TOUR_STORAGE_KEY = 'brightRankTourCompleted';
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
@@ -28,8 +29,8 @@ const IconExternalLink: React.FC<{className?: string}> = ({className}) => <svg x
 
 const PublicHeader: React.FC<{
     setCurrentPage: (page: Page) => void;
-    onOpenWaitlist: () => void;
-}> = ({ setCurrentPage, onOpenWaitlist }) => {
+    setAuthMode: (mode: 'login' | 'register') => void;
+}> = ({ setCurrentPage, setAuthMode }) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mobileResourcesOpen, setMobileResourcesOpen] = useState(false);
@@ -60,6 +61,12 @@ const PublicHeader: React.FC<{
         setCurrentPage(page);
         setMobileMenuOpen(false);
     };
+    
+    const handleNavAuth = (mode: 'login' | 'register', page: Page = 'auth') => {
+        setAuthMode(mode);
+        setCurrentPage(page);
+        setMobileMenuOpen(false);
+    }
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 bg-dark-bg/50 backdrop-blur-lg">
@@ -92,9 +99,12 @@ const PublicHeader: React.FC<{
                 </div>
 
                 <div className="flex items-center">
-                    <div className="hidden md:block">
-                        <button onClick={onOpenWaitlist} className="px-4 py-2 rounded-lg font-semibold transition-all duration-300 bg-gray-500/20 text-gray-200 hover:bg-gray-500/30">
-                            JOIN WAITLIST
+                    <div className="hidden md:flex items-center space-x-2">
+                         <button onClick={() => handleNavAuth('login')} className="px-4 py-2 rounded-lg font-medium transition-all duration-300 text-gray-300 hover:text-white">
+                            Login
+                        </button>
+                        <button onClick={() => handleNavAuth('register')} className="px-4 py-2 rounded-lg font-semibold transition-all duration-300 bg-gray-500/20 text-gray-200 hover:bg-gray-500/30">
+                            Sign Up
                         </button>
                     </div>
                     <div className="md:hidden">
@@ -129,9 +139,12 @@ const PublicHeader: React.FC<{
                                 </div>
                             )}
                         </li>
-                        <li className="pt-2">
-                            <button onClick={() => { onOpenWaitlist(); setMobileMenuOpen(false); }} className="px-4 py-2 rounded-lg font-semibold transition-all duration-300 bg-gray-500/20 text-gray-200 hover:bg-gray-500/30">
-                                JOIN WAITLIST
+                        <li className="pt-4 flex flex-col items-center gap-3">
+                            <button onClick={() => handleNavAuth('login')} className="px-6 py-2 w-48 text-lg rounded-lg font-medium transition-all duration-300 text-gray-300 hover:text-white">
+                                Login
+                            </button>
+                            <button onClick={() => handleNavAuth('register')} className="px-6 py-2 w-48 text-lg rounded-lg font-semibold transition-all duration-300 bg-gray-500/20 text-gray-200 hover:bg-gray-500/30">
+                                Sign Up
                             </button>
                         </li>
                     </ul>
@@ -146,17 +159,21 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [toast, setToast] = useState<ToastData | null>(null);
+  
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<UserAccount[]>([]);
   const [appData, setAppData] = useState<OnboardingData | null>(null);
+
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [isInitialAnalysis, setIsInitialAnalysis] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const timeoutId = useRef<number | null>(null);
 
   const showToast = useCallback((data: ToastData) => {
     setToast(data);
-    setTimeout(() => setToast(null), 5000); // Increased timeout for better readability
+    setTimeout(() => setToast(null), 5000);
   }, []);
 
   const handleLogout = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -164,8 +181,8 @@ const App: React.FC = () => {
         window.clearTimeout(timeoutId.current);
         timeoutId.current = null;
       }
+      setCurrentUser(null);
       setAppData(null);
-      localStorage.removeItem(APP_DATA_KEY);
       setCurrentPage('landing');
       showToast({ message, type });
   }, [showToast]);
@@ -181,7 +198,7 @@ const App: React.FC = () => {
       }, SESSION_TIMEOUT);
     };
 
-    if (appData) {
+    if (currentUser) {
       resetTimeout();
       events.forEach(event => window.addEventListener(event, resetTimeout));
     }
@@ -192,7 +209,7 @@ const App: React.FC = () => {
       }
       events.forEach(event => window.removeEventListener(event, resetTimeout));
     };
-  }, [appData, handleLogout]);
+  }, [currentUser, handleLogout]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -204,48 +221,104 @@ const App: React.FC = () => {
 
   useEffect(() => {
     try {
-      const storedData = localStorage.getItem(APP_DATA_KEY);
-      if (storedData) {
-        const parsedData = JSON.parse(storedData);
-        if (!parsedData.competitors) {
-          parsedData.competitors = [];
-        }
-        setAppData(parsedData);
-        // App always starts on landing page
+      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+      if (storedUsers) {
+        setUsers(JSON.parse(storedUsers));
       }
     } catch (error) {
-      console.error("Failed to parse app data from localStorage", error);
-      setCurrentPage('landing');
+      console.error("Failed to load users from localStorage", error);
     }
   }, []);
+  
+  useEffect(() => {
+    if (currentUser) {
+      try {
+        const allDataStr = localStorage.getItem(APP_DATA_STORAGE_KEY);
+        if (allDataStr) {
+          const allData = JSON.parse(allDataStr);
+          const userData = allData[currentUser.email];
+          if (userData) {
+            if (!userData.competitors) userData.competitors = [];
+            setAppData(userData);
+          } else {
+            setAppData(null);
+            setShowOnboarding(true);
+          }
+        } else {
+          setAppData(null);
+          setShowOnboarding(true);
+        }
+      } catch (error) {
+        console.error("Failed to parse app data from localStorage", error);
+        setAppData(null);
+      }
+    }
+  }, [currentUser]);
 
   const handleSetAppData = (data: OnboardingData) => {
-    setAppData(data);
-    localStorage.setItem(APP_DATA_KEY, JSON.stringify(data));
-  };
+    if (!currentUser) return;
 
-  const handleStartTrial = () => {
-    if (appData) {
-      setCurrentPage('dashboard');
-    } else {
-      setShowOnboarding(true);
+    setAppData(data);
+    try {
+        const allDataStr = localStorage.getItem(APP_DATA_STORAGE_KEY);
+        const allData = allDataStr ? JSON.parse(allDataStr) : {};
+        allData[currentUser.email] = data;
+        localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(allData));
+    } catch (error) {
+        console.error("Failed to save app data to localStorage", error);
+        showToast({ message: 'Could not save your data.', type: 'error' });
     }
   };
-
-  const handleOpenWaitlistModal = () => {
-      setShowWaitlistModal(true);
-  };
-
-  const handleCloseWaitlistModal = () => {
-      setShowWaitlistModal(false);
-  };
-
-  const handleJoinWaitlist = (email: string) => {
-      console.log('Waitlist email:', email); // Mock sending email
-      setShowWaitlistModal(false);
-      showToast({ message: "You've been placed in the queue!", type: 'success' });
-  };
   
+  const handleRegister = (email: string, pass: string) => {
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+        showToast({ message: 'An account with this email already exists.', type: 'error' });
+        return;
+    }
+    const newUserAccount: UserAccount = { email, passwordHash: pass }; // Not hashing for simplicity
+    const updatedUsers = [...users, newUserAccount];
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+
+    setCurrentUser({ email });
+    showToast({ message: 'Account created successfully!', type: 'success' });
+    // Onboarding is triggered by useEffect watching currentUser
+  };
+
+  const handleLogin = (email: string, pass: string) => {
+      const userAccount = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (userAccount && userAccount.passwordHash === pass) {
+          setCurrentUser({ email });
+          setCurrentPage('dashboard');
+          showToast({ message: `Welcome back!`, type: 'success' });
+          // Data loading and onboarding check is handled by useEffect
+      } else {
+          showToast({ message: 'Invalid email or password.', type: 'error' });
+      }
+  };
+
+  const handleOAuthLogin = (email: string, provider: 'Google' | 'Apple' | 'Microsoft') => {
+    let userAccount = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+    if (!userAccount) {
+        const newUserAccount: UserAccount = { email, passwordHash: `oauth_${provider.toLowerCase()}` };
+        const updatedUsers = [...users, newUserAccount];
+        setUsers(updatedUsers);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+        console.log(`New user registered via ${provider}: ${email}`);
+    }
+    
+    setCurrentUser({ email });
+    setCurrentPage('dashboard');
+    showToast({ message: `Welcome via ${provider}!`, type: 'success' });
+  };
+
+
+  const handleGetStarted = () => {
+    setAuthMode('register');
+    setCurrentPage('auth');
+  };
+
   const handleLogoClickLogout = () => {
     handleLogout('You have been successfully logged out.');
   };
@@ -258,18 +331,15 @@ const App: React.FC = () => {
     handleSetAppData(data);
     setIsInitialAnalysis(true);
     setCurrentPage('dashboard');
-    setIsNewUser(true); // Flag as new user to trigger tour
+    setIsNewUser(true);
     showToast({ message: 'Welcome! Setting up your dashboard...', type: 'success' });
   };
 
   const handleAnalysisComplete = () => {
     setIsInitialAnalysis(false);
     const tourCompleted = localStorage.getItem(TOUR_STORAGE_KEY);
-    // Only show tour if it's a new user session and tour hasn't been completed before
     if (isNewUser && !tourCompleted) {
-        setTimeout(() => {
-            setShowTour(true);
-        }, 600); // Small delay for modal to animate out
+        setTimeout(() => setShowTour(true), 600);
     }
   };
 
@@ -279,48 +349,24 @@ const App: React.FC = () => {
   };
 
   const tourSteps: TourStep[] = [
-    {
-      selector: '#tour-step-1',
-      title: 'Your Visibility Score',
-      content: 'This is your brand\'s overall score in AI conversations. We calculate it based on how often and how positively your brand is mentioned.',
-      position: 'bottom',
-    },
-    {
-      selector: '#tour-step-2',
-      title: 'Select a Date Range',
-      content: 'You can filter your dashboard data by different time periods to see trends and track progress.',
-      position: 'bottom',
-    },
-    {
-      selector: '#tour-step-3',
-      title: 'Refresh Your Data',
-      content: 'Click here to fetch the latest data. The dashboard updates automatically based on your plan.',
-      position: 'bottom',
-    },
-    {
-      selector: '#tour-step-4',
-      title: 'Track Every Mention',
-      content: 'Here you\'ll find a detailed log of every time your brand is mentioned, along with the context and sentiment.',
-      position: 'top',
-    },
-    {
-      selector: '#tour-step-5',
-      title: 'Explore More',
-      content: 'Use the sidebar to navigate to other sections like Keywords, Reports, and Settings to dive deeper.',
-      position: 'right',
-    },
+    { selector: '#tour-step-1', title: 'Your Visibility Score', content: 'This is your brand\'s overall score in AI conversations. We calculate it based on how often and how positively your brand is mentioned.', position: 'bottom' },
+    { selector: '#tour-step-2', title: 'Select a Date Range', content: 'You can filter your dashboard data by different time periods to see trends and track progress.', position: 'bottom' },
+    { selector: '#tour-step-3', title: 'Refresh Your Data', content: 'Click here to fetch the latest data. The dashboard updates automatically based on your plan.', position: 'bottom' },
+    { selector: '#tour-step-4', title: 'Track Every Mention', content: 'Here you\'ll find a detailed log of every time your brand is mentioned, along with the context and sentiment.', position: 'top' },
+    { selector: '#tour-step-5', title: 'Explore More', content: 'Use the sidebar to navigate to other sections like Keywords, Reports, and Settings to dive deeper.', position: 'right' },
   ];
 
   const renderPage = () => {
-    // Guards to prevent rendering app pages without data, redirecting to landing if accessed directly.
     const authenticatedPages: Page[] = ['dashboard', 'keywords', 'reports', 'settings'];
-    if (authenticatedPages.includes(currentPage) && !appData) {
-        return <LandingPage onStartTrial={handleStartTrial} onOpenWaitlist={handleOpenWaitlistModal} />;
+    if (authenticatedPages.includes(currentPage) && !currentUser) {
+        return <LandingPage onGetStarted={handleGetStarted} />;
     }
 
     switch (currentPage) {
       case 'landing':
-          return <LandingPage onStartTrial={handleStartTrial} onOpenWaitlist={handleOpenWaitlistModal} />;
+          return <LandingPage onGetStarted={handleGetStarted} />;
+      case 'auth':
+          return <AuthPage onLogin={handleLogin} onRegister={handleRegister} onOAuthLogin={handleOAuthLogin} initialMode={authMode} showToast={showToast} />;
       case 'dashboard':
         return <DashboardPage appData={appData!} isInitialAnalysis={isInitialAnalysis} onAnalysisComplete={handleAnalysisComplete} showToast={showToast} />;
       case 'keywords':
@@ -338,11 +384,11 @@ const App: React.FC = () => {
       case 'docs':
         return <DocsPage />;
       default:
-        return <LandingPage onStartTrial={handleStartTrial} onOpenWaitlist={handleOpenWaitlistModal} />;
+        return <LandingPage onGetStarted={handleGetStarted} />;
     }
   };
 
-  const isAuthenticated = !!appData;
+  const isAuthenticated = !!currentUser;
   const isAppPage = ['dashboard', 'keywords', 'reports', 'settings'].includes(currentPage);
   const isAppLayout = isAuthenticated && isAppPage;
 
@@ -355,6 +401,7 @@ const App: React.FC = () => {
                 isDarkMode={isDarkMode}
                 setIsDarkMode={setIsDarkMode}
                 onGoHome={handleLogoClickLogout}
+                userEmail={currentUser?.email}
             />
             <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
                 <div className="max-w-7xl mx-auto">
@@ -362,7 +409,9 @@ const App: React.FC = () => {
                 </div>
             </main>
             {isInitialAnalysis && <InitialAnalysisModal brandName={appData!.brandName} />}
+            {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} onClose={handleCloseOnboarding} />}
             <GuidedTour isOpen={showTour} steps={tourSteps} onClose={handleTourClose} />
+            <ChatAssistant appData={appData} />
             {toast && <Toast data={toast} onDismiss={() => setToast(null)} />}
         </div>
      );
@@ -370,12 +419,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-dark-bg text-gray-200 font-sans">
-        <PublicHeader setCurrentPage={setCurrentPage} onOpenWaitlist={handleOpenWaitlistModal} />
+        <PublicHeader setCurrentPage={setCurrentPage} setAuthMode={setAuthMode} />
          <main className="pt-16">
              {renderPage()}
         </main>
-        {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} onClose={handleCloseOnboarding} />}
-        {showWaitlistModal && <JoinWaitlistModal onClose={handleCloseWaitlistModal} onJoin={handleJoinWaitlist} />}
+        {showOnboarding && currentUser && <OnboardingModal onComplete={handleOnboardingComplete} onClose={handleCloseOnboarding} />}
         {toast && <Toast data={toast} onDismiss={() => setToast(null)} />}
     </div>
   );

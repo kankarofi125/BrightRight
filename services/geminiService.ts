@@ -109,3 +109,38 @@ export const getCompetitorScores = async (mainBrandName: string, keywords: strin
     }));
     return simulateApiCall(mockScores);
 };
+
+// A simple mock for a streaming chat response
+export async function* getChatResponseStream(
+  prompt: string,
+  context: DashboardAnalysisResult
+): AsyncGenerator<string> {
+  // Simulate initial delay
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  const lowerCasePrompt = prompt.toLowerCase();
+  let response = "";
+
+  // Basic query matching
+  if (lowerCasePrompt.includes("score") || lowerCasePrompt.includes("visibility")) {
+    response = `Your current visibility score is ${context.overallScore}. This represents a ${context.visibilityChange > 0 ? 'positive' : 'negative'} change of ${context.visibilityChange}% from the last period. Would you like a deeper breakdown?`;
+  } else if (lowerCasePrompt.includes("sentiment")) {
+    const { positive, neutral, negative } = context.sentimentBreakdown;
+    response = `Your sentiment breakdown is ${positive}% positive, ${neutral}% neutral, and ${negative}% negative. The sentiment trend shows that positive mentions have been fairly stable over the past four weeks.`;
+  } else if (lowerCasePrompt.includes("mentions")) {
+    response = `You have a total of ${context.totalMentions} mentions across all platforms. The top platform is ${context.platformBreakdown[0].platform} with ${context.platformBreakdown[0].mentions} mentions. I can provide you with the raw mention data if you'd like.`;
+  } else if (lowerCasePrompt.includes("summary") || lowerCasePrompt.includes("summarize")) {
+    response = context.summary || "I don't have a detailed summary at the moment, but your overall performance seems solid.";
+  } else if (lowerCasePrompt.includes("hello") || lowerCasePrompt.includes("hi")) {
+    response = "Hello! I'm your BrightRank assistant. How can I help you analyze your dashboard data today?";
+  } else {
+    response = `I can help with questions about your dashboard data. For example, you can ask "What is my visibility score?" or "Summarize my performance." The most recent analysis shows a score of ${context.overallScore} with ${context.totalMentions} total mentions.`;
+  }
+
+  // Stream the response word by word
+  const words = response.split(' ');
+  for (const word of words) {
+    yield word + " ";
+    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 50));
+  }
+}
